@@ -110,7 +110,7 @@ class BoundingBoxEnv(BaseCustomEnv):
         # # self.train_ds, self.valid_ds = icedata.fridge.dataset(self.data_dir)
         # parser = icedata.fridge.dataset(self.data_dir)
         
-        np.random.seed(123)
+        # np.random.seed(123)
         
         self.data_dir = icedata.pennfudan.load_data()
         self.class_map = ClassMap(['person']) 
@@ -264,8 +264,11 @@ if __name__ == '__main__':
     MAX_STEPS_PER_EPISODE = 10
 
     env = BoundingBoxEnv(episode_length=MAX_STEPS_PER_EPISODE)
-    env.seed(123)
-    # env.action_space.np_random.seed(123)
+    RANDOM_SEED = 0
+    np.random.seed(RANDOM_SEED)
+    random.seed(RANDOM_SEED)
+    env.seed(RANDOM_SEED)
+    
 
     for episode in range(MAX_NUM_EPISODES):
         observation = env.reset()
@@ -273,6 +276,8 @@ if __name__ == '__main__':
             env.render()
             np.random.seed(step)
             action = np.random.uniform(0, 1, env.action_space.shape)
+            # env.action_space.seed(RANDOM_SEED)
+            # action = env.action_space.sample()
             next_state, reward, done, info = env.step(action) # Send the action to the environment and receive the next_state, reward and whether done or not
             observation = next_state
             if done is True:
