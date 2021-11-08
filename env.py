@@ -14,8 +14,11 @@ from icevision.all import BBox, show_sample, draw_sample, draw_pred, draw_bbox
 from icevision.models.inference import draw_img_and_boxes
 from icevision.utils import denormalize_imagenet 
 from argparse import ArgumentParser
-
+from PIL import Image
 from pprint import pprint
+from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
+from stable_baselines.common import set_global_seeds
+# from stable_baselines.common.vec_env import DummyVecEnv
 
 class BaseCustomEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -73,6 +76,19 @@ class BaseCustomEnv(gym.Env):
         pass
 
 
+from icevision.imports import *
+from icevision.core import *
+from icevision.data import *
+# from icevision.tfms.albumentations.albumentations_helpers import (
+#     get_size_without_padding,
+# )
+# from icevision.tfms.albumentations import albumentations_adapter
+
+from icevision.utils.imageio import *
+# from icevision.visualize.draw_data import *
+# from icevision.visualize.utils import *
+
+
 class BoundingBoxEnv(BaseCustomEnv):
     @property
     def observation_space(self):
@@ -103,6 +119,7 @@ class BoundingBoxEnv(BaseCustomEnv):
         observation = torchvision.transforms.ToTensor()(self.sample.img)
 
         self.bboxes = []
+        self.videos = []
         return observation
 
     def step(self, action):
@@ -116,12 +133,61 @@ class BoundingBoxEnv(BaseCustomEnv):
 
 
         reward = 0
-        done = (self.current_step > self.episode_length)
+        done = (self.current_step >= self.episode_length)
+        # if done:
+        #     self.videos[0].save('vid.gif',
+        #        save_all=True, 
+        #        append_images=self.videos[1:], 
+        #        optimize=False, 
+        #        duration=10, 
+        #        loop=0)
         info = {}
         return next_state, reward, done, info 
 
+    def draw_img_and_boxes(self, 
+        img: Union[PIL.Image.Image, np.ndarray],
+        bboxes: dict,
+        class_map,
+        display_score: bool = True,
+        label_color: Union[np.array, list, tuple, str] = (255, 255, 0),
+        label_border_color: Union[np.array, list, tuple, str] = (255, 255, 0),
+    ) -> PIL.Image.Image:
+
+        if not isinstance(img, PIL.Image.Image):
+            img = np.array(img)
+
+        # convert dict to record
+        record = ObjectDetectionRecord()
+        w, h = img.shape[:2]
+        record.img = np.array(img)
+        record.set_img_size(ImgSize(width=w, height=h))
+        record.detection.set_class_map(class_map)
+        for bbox in bboxes:
+            record.detection.add_bboxes(bboxes)
+            # record.detection.add_labels([bbox["class"]])
+            # record.detection.set_scores(bbox["score"])
+
+        pred_img = draw_sample(
+            record,
+            display_score=display_score,
+            label_color=label_color,
+            label_border_color=label_border_color,
+        )
+
+        return pred_img
+        
     def render(self, mode='human', close=False):
-        pprint(self.bboxes)
+        if self.bboxes:
+            pprint(self.bboxes[-1]) 
+        vis = self.draw_img_and_boxes(
+            denormalize_imagenet(self.sample.img),
+            self.bboxes, 
+            self.class_map, display_score=False
+        )
+        plt.imshow(vis)
+        plt.axis("off")
+        plt.pause(1)
+        self.videos.append(Image.fromarray(vis))
 
 
 
@@ -129,16 +195,17 @@ if __name__ == '__main__':
 
 
     MAX_NUM_EPISODES = 1
-    MAX_STEPS_PER_EPISODE = 5
+    MAX_STEPS_PER_EPISODE = 20
 
     env = BoundingBoxEnv(episode_length=MAX_STEPS_PER_EPISODE)
+    env = DummyVecEnv([lambda: env])
 
 
     for episode in range(MAX_NUM_EPISODES):
         observation = env.reset()
         for step in range(MAX_STEPS_PER_EPISODE):
-            env.render()
-            action = env.action_space.sample()# Sample random action. This will be replaced by our agent's action when we start developing the agentalgorithms
+            [env.render() for n in range(5)]
+            action = [env.action_space.sample() for n in range(5)]# Sample random action. This will be replaced by our agent's action when we start developing the agentalgorithms
             next_state, reward, done, info = env.step(action) # Send the action to the environment and receive the next_state, reward and whether done or not
             observation = next_state
             if done is True:
