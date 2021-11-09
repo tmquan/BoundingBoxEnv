@@ -166,18 +166,19 @@ class BoundingBoxEnv(BaseCustomEnv):
 
     def step(self, action):
         self.current_step += 1
-        # xcycwh = action #(0.7, 0.2, 0.1, 0.2)
-        # bbox = BBox.from_relative_xcycwh(*xcycwh, img_width=self.width, img_height=self.height)
-        xmin = int(action[0] * (self.width - 1))
-        ymin = int(action[1] * (self.height - 1))
-        xmax = int(action[2] * (self.width - xmin)) + xmin + 1
-        ymax = int(action[3] * (self.height - ymin)) + ymin + 1
-        bbox = BBox.from_xyxy(xmin, ymin, xmax, ymax)
+        if False: # xywh
+            xcycwh = action #(0.7, 0.2, 0.1, 0.2)
+            bbox = BBox.from_relative_xcycwh(*xcycwh, img_width=self.width, img_height=self.height)
+        else:
+            xmin = int(action[0] * (self.width - 1))
+            ymin = int(action[1] * (self.height - 1))
+            xmax = int(action[2] * (self.width - xmin)) + xmin + 1
+            ymax = int(action[3] * (self.height - ymin)) + ymin + 1
+            bbox = BBox.from_xyxy(xmin, ymin, xmax, ymax)
         bbox.autofix(img_w=self.width, img_h=self.height)
         self.bboxes.append(bbox)
 
         next_state = torchvision.transforms.ToTensor()(self.record.img)
-
 
         reward = 0
         done = (self.current_step >= self.episode_length)
@@ -264,7 +265,7 @@ if __name__ == '__main__':
     MAX_STEPS_PER_EPISODE = 10
 
     env = BoundingBoxEnv(episode_length=MAX_STEPS_PER_EPISODE)
-    RANDOM_SEED = 0
+    RANDOM_SEED = 2022
     np.random.seed(RANDOM_SEED)
     random.seed(RANDOM_SEED)
     env.seed(RANDOM_SEED)
